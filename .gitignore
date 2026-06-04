@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local config
+local.properties
+*.local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Kotlin/Native
+.konan/
+
+# iOS
+**/*.xcworkspace/xcuserdata
+**/*.xcodeproj/xcuserdata
+Pods/
+DerivedData/
+*.ipa
+*.dSYM.zip
+
+# Android
+*.apk
+*.aab
+*.keystore
+*.jks
