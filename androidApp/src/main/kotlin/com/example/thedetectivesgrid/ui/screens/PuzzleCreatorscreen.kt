@@ -1,6 +1,10 @@
 package com.example.thedetectivesgrid.ui.screens
 
+
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +27,7 @@ import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.BatchPrediction
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.FolderCopy
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayCircleOutline
@@ -31,6 +36,7 @@ import androidx.compose.material.icons.filled.TheaterComedy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -464,6 +470,10 @@ fun PuzzleCreatorScreen(
                     }
                 }
 
+                if (state is PuzzleState.Input) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CreatorHowToPlayCard(juraFont = juraFont)
+                }
 
                 if (state is PuzzleState.Playing) {
 
@@ -502,7 +512,7 @@ fun PuzzleCreatorScreen(
                                         letter = letter,
                                         isSelected =
                                             index in selectedCells ||
-                                            index in foundCells,
+                                                    index in foundCells,
                                         onClick = {
                                             if (index in selectedCells) {
                                                 selectedCells.remove(index)
@@ -515,6 +525,10 @@ fun PuzzleCreatorScreen(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    CreatorHowToPlayCard(juraFont = juraFont)
 
                     Spacer(modifier = Modifier.height(18.dp))
 
@@ -584,10 +598,10 @@ fun PuzzleCreatorScreen(
                                     fontFamily = juraFont,
                                     color = Color(0xFF4E342E),
                                     textDecoration =
-                                    if (word in solvedWords)
-                                        TextDecoration.LineThrough
-                                    else
-                                        TextDecoration.None
+                                        if (word in solvedWords)
+                                            TextDecoration.LineThrough
+                                        else
+                                            TextDecoration.None
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
@@ -743,6 +757,134 @@ fun PuzzleCreatorScreen(
                             color = Color.Red,
                             fontSize = 18.sp
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CreatorHowToPlayCard — collapsible hints panel for creator screen
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun CreatorHowToPlayCard(juraFont: FontFamily) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val inputHints = listOf(
+        "✏️" to "Fill in Culprit, Weapon, Scene and Motive — these are the answers players must guess.",
+        "📝" to "Enter all hidden words separated by commas (e.g. KNIFE, BUTLER, LIBRARY).",
+        "🔡" to "Words are auto-uppercased. Each word must be 3–9 letters.",
+        "🎮" to "Tap Generate Puzzle & Start Play to preview the puzzle as a player would see it.",
+        "💾" to "The case answers are saved automatically for players to verify against."
+    )
+
+    val playHints = listOf(
+        "🔍" to "Tap letters in the grid to select them. Select all letters of a word to mark it found.",
+        "↩️" to "Tap a selected letter again to deselect it.",
+        "📋" to "Track your progress in the Words To Find list below the grid.",
+        "🕵️" to "Once all words are found, enter your guesses and tap Solve Case.",
+        "💡" to "Words can run horizontally, vertically, or diagonally in any direction."
+    )
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF4E6D0)),
+        modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = androidx.compose.ui.Modifier.padding(16.dp)) {
+            Row(
+                modifier = androidx.compose.ui.Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayCircleOutline,
+                        contentDescription = null,
+                        tint = Color(0xFF6D4C41),
+                        modifier = androidx.compose.ui.Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "How To Play",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = juraFont,
+                        color = Color(0xFF3E2723)
+                    )
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = Color(0xFF6D4C41),
+                    modifier = androidx.compose.ui.Modifier.size(20.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Divider(color = Color(0xFFD7BE9A))
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Text(
+                        text = "Setup",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = juraFont,
+                        color = Color(0xFF6D4C41),
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(6.dp))
+                    inputHints.forEach { (emoji, text) ->
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = androidx.compose.ui.Modifier.padding(vertical = 3.dp)
+                        ) {
+                            Text(text = emoji, fontSize = 14.sp)
+                            Text(
+                                text = text,
+                                fontSize = 13.sp,
+                                fontFamily = juraFont,
+                                color = Color(0xFF4E342E),
+                                fontWeight = FontWeight.Bold,
+                                modifier = androidx.compose.ui.Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Divider(color = Color(0xFFD7BE9A))
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Text(
+                        text = "Playing",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = juraFont,
+                        color = Color(0xFF6D4C41),
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(6.dp))
+                    playHints.forEach { (emoji, text) ->
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = androidx.compose.ui.Modifier.padding(vertical = 3.dp)
+                        ) {
+                            Text(text = emoji, fontSize = 14.sp)
+                            Text(
+                                text = text,
+                                fontSize = 13.sp,
+                                fontFamily = juraFont,
+                                color = Color(0xFF4E342E),
+                                fontWeight = FontWeight.Bold,
+                                modifier = androidx.compose.ui.Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }

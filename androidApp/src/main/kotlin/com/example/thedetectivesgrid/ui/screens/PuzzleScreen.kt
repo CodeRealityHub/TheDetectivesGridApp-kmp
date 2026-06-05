@@ -345,6 +345,9 @@ fun PuzzleScreen(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HowToPlayCard(jura = jura)
             }
 
             // ══════════════════════════════════════════════
@@ -487,6 +490,9 @@ fun PuzzleScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HowToPlayCard(jura = jura)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -925,6 +931,83 @@ fun NotepadCard(
             border = BorderStroke(1.dp, BorderBeige2)
         ) {
             Column(modifier = Modifier.padding(18.dp), content = content)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HowToPlayCard — collapsible hints panel
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun HowToPlayCard(jura: FontFamily) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val hints = listOf(
+        "🔍" to "Tap individual letters in the grid to select them.",
+        "✅" to "Select all letters of a hidden word to mark it found.",
+        "↩️" to "Tap a selected cell again to deselect it, or use Clear Selection.",
+        "📋" to "All words to find are listed in the Words To Find card below the grid.",
+        "🕵️" to "Once all words are found, fill in Culprit, Weapon, Scene & Motive to solve the case.",
+        "💡" to "Words can be hidden horizontally, vertically, or diagonally in any direction."
+    )
+
+    NotebookCard(jura = jura) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = BulletBrown,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "How To Play",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = jura,
+                    color = TitleBrown
+                )
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = BulletBrown,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                Spacer(modifier = Modifier.height(10.dp))
+                Divider(color = BorderBeige2)
+                Spacer(modifier = Modifier.height(12.dp))
+                hints.forEach { (emoji, text) ->
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Text(text = emoji, fontSize = 15.sp)
+                        Text(
+                            text = text,
+                            fontSize = 13.sp,
+                            fontFamily = jura,
+                            color = TextBrown,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
         }
     }
 }
