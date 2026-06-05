@@ -1,10 +1,10 @@
 import SwiftUI
 
 @main
-struct iOSApp: App {
+struct TheDetectiveGridApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashScreenView()
         }
     }
 }

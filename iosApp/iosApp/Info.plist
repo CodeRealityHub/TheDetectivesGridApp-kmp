@@ -4,6 +4,12 @@
 <dict>
 	<key>UIAppsFonts</key>
 	<string>&lt;array&gt;&lt;string&gt;Jura-Bold.ttf&lt;/string&gt;&lt;/array&gt;</string>
+	<key>UIAppaFont</key>
+	<string>&lt;key&gt;UIAppFonts&lt;/key&gt;
+&lt;array&gt;
+  &lt;string&gt;PlayfairDisplay-Italic-VariableFont_wght.ttf&lt;/string&gt;
+  &lt;string&gt;DMMono-Italic.ttf&lt;/string&gt;
+&lt;/array&gt;</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 </dict>
