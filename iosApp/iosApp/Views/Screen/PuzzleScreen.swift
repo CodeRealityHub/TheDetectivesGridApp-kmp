@@ -76,9 +76,11 @@ struct PuzzleScreen: View {
                     topBar
                     if !isPlaying {
                         wordInputPhase
+                        howToPlayCard
                     }
                     if isPlaying, let puzzle = puzzleData {
                         playingPhase(puzzle: puzzle)
+                        howToPlayCard
                     }
                 }
                 .padding(.horizontal, 16)
@@ -487,6 +489,21 @@ struct PuzzleScreen: View {
         .cornerRadius(16)
     }
 
+    // MARK: - How To Play Card
+
+    private var howToPlayCard: some View {
+        HowToPlayCard(
+            hints: [
+                ("magnifyingglass", "Tap individual letters in the grid to select them."),
+                ("checkmark.circle.fill", "Select all letters of a hidden word to mark it found."),
+                ("arrow.uturn.backward.circle.fill", "Tap a selected cell again to deselect it, or use Clear Selection."),
+                ("list.bullet.clipboard.fill", "All words to find are listed in the Words To Find card below the grid."),
+                ("person.text.rectangle.fill", "Once all words are found, fill in Culprit, Weapon, Scene & Motive to solve the case."),
+                ("lightbulb.max.fill", "Words can be hidden horizontally, vertically, or diagonally in any direction.")
+            ]
+        )
+    }
+
     // MARK: - Actions
 
     private func submitWord() {
@@ -764,6 +781,61 @@ struct NotepadCard<Content: View>: View {
                     .stroke(Color.borderBeige2, lineWidth: 1)
             )
             .shadow(color: Color.shadowBrown2.opacity(0.5), radius: 0, x: 4, y: 5)
+    }
+}
+
+// MARK: - HowToPlayCard
+struct HowToPlayCard: View {
+
+    let hints: [(String, String)]
+    @State private var expanded = false
+    
+
+    var body: some View {
+        NotebookCard {
+            Button(action: { withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() } }) {
+                HStack {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.bulletBrown)
+                    Text("How To Play")
+                        .font(.custom(juraFont, size: 16))
+                        .fontWeight(.heavy)
+                        .foregroundColor(.titleBrown)
+                    Spacer()
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.bulletBrown)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                Divider()
+                    .background(Color.borderBeige2)
+                    .padding(.vertical, 8)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(hints.enumerated()), id: \.offset) { _, hint in
+                        let (icon, text) = hint
+
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: icon)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.bulletBrown)
+                                .frame(width: 18)
+
+                            Text(text)
+                                .font(.custom(juraFont, size: 13))
+                                .fontWeight(.bold)
+                                .foregroundColor(.textBrown)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
     }
 }
 

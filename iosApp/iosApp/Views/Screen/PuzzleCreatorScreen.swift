@@ -36,6 +36,8 @@ struct PuzzleCreatorScreen: View {
 
     @State private var caseSolved = false
 
+    @State private var showHints = false
+
     @State private var generatedGrid: [String] = []
     @State private var placements: [WordPlacement] = []
 
@@ -63,6 +65,7 @@ struct PuzzleCreatorScreen: View {
 
                 if state == .input {
                     inputView
+                    creatorHowToPlayCard
                 }
 
                 if state == .playing {
@@ -195,6 +198,8 @@ extension PuzzleCreatorScreen {
 
             wordsCard
 
+            creatorHowToPlayCard
+
             answerFields
 
             Button("Solve Case") {
@@ -237,6 +242,98 @@ extension PuzzleCreatorScreen {
             }
         }
         .padding()
+        .background(.white.opacity(0.8))
+        .cornerRadius(16)
+    }
+}
+
+extension PuzzleCreatorScreen {
+
+    private var creatorHowToPlayCard: some View {
+
+        let setupHints: [(String, String)] = [
+            ("square.and.pencil", "Fill in Culprit, Weapon, Scene and Motive — these are the answers players must guess."),
+            ("list.bullet.clipboard.fill", "Enter hidden words separated by commas (e.g. KNIFE, BUTLER, LIBRARY)."),
+            ("textformat.abc", "Words are auto-uppercased. Each word must be 3–9 letters."),
+            ("gamecontroller.fill", "Tap Generate Puzzle & Start Play to preview it as a player would.")
+        ]
+
+        let playHints: [(String, String)] = [
+            ("magnifyingglass", "Tap letters in the grid to select them. Select all letters of a word to mark it found."),
+            ("arrow.uturn.backward.circle.fill", "Tap a selected letter again to deselect it."),
+            ("list.bullet.clipboard.fill", "Track your progress in the Words To Find list below the grid."),
+            ("person.text.rectangle.fill", "Once all words are found, enter your guesses and tap Solve Case."),
+            ("lightbulb.max.fill", "Words can be hidden horizontally, vertically, or diagonally in any direction.")
+        ]
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showHints.toggle() } }) {
+                HStack {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Text("How To Play")
+                        .font(.headline)
+                    Spacer()
+                    Image(systemName: showHints ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
+                .foregroundColor(.primary)
+            }
+            .buttonStyle(.plain)
+            .padding()
+
+            if showHints {
+                Divider().padding(.horizontal)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("SETUP")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+
+                    ForEach(Array(setupHints.enumerated()), id: \.offset) { _, hint in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: hint.0)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .frame(width: 18)
+
+                            Text(hint.1)
+                                .font(.subheadline)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                    }
+
+                    Text("PLAYING")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+
+                    ForEach(Array(playHints.enumerated()), id: \.offset) { _, hint in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: hint.0)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .frame(width: 18)
+
+                            Text(hint.1)
+                                .font(.subheadline)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding(.bottom, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
         .background(.white.opacity(0.8))
         .cornerRadius(16)
     }
@@ -309,4 +406,3 @@ extension Color {
         )
     }
 }
-
