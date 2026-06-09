@@ -470,9 +470,11 @@ fun PuzzleCreatorScreen(
                     }
                 }
 
+                // ✅ Spacer added after CreatorHowToPlayCard in Input state
                 if (state is PuzzleState.Input) {
                     Spacer(modifier = Modifier.height(16.dp))
                     CreatorHowToPlayCard(juraFont = juraFont)
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
 
                 if (state is PuzzleState.Playing) {
@@ -675,7 +677,7 @@ fun PuzzleCreatorScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(35.dp))
 
                     if (state is PuzzleState.Playing) {
                         val allCluesSolved =
@@ -739,7 +741,7 @@ fun PuzzleCreatorScreen(
                         Text("Solve Case")
                     }
 
-                    Spacer(modifier = Modifier.height(25.dp))
+                    Spacer(modifier = Modifier.height(21.dp))
 
                     if (caseSolved) {
 
@@ -758,6 +760,7 @@ fun PuzzleCreatorScreen(
                             fontSize = 18.sp
                         )
                     }
+                    Spacer(modifier = Modifier.height(80.dp)) // 👈 add this
                 }
             }
         }
