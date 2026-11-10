@@ -2,7 +2,6 @@ package com.example.thedetectivesgrid.ui.screens
 
 
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +35,6 @@ import androidx.compose.material.icons.filled.TheaterComedy
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,13 +45,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.border
-import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -69,15 +66,22 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.imePadding
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import android.app.Activity
+import android.util.Log
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.thedetectivesgrid.generator.PuzzleGenerator
 import com.example.thedetectivesgrid.models.PuzzleState
 import com.example.thedetectivesgrid.ui.screens.components.PuzzleCell
+import com.example.thedetectivesgrid.ui.screens.components.DetectiveHintButton
+import com.example.thedetectivesgrid.ui.screens.components.DetectiveHintDialog
+import com.example.thedetectivesgrid.ui.screens.components.HintRules
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.style.TextDecoration
 import com.example.thedetectivesgrid.models.CaseData
 import com.example.thedetectivesgrid.models.CaseStorage
@@ -91,7 +95,6 @@ fun PuzzleCreatorScreen(
 ) {
 
     val juraFont = FontFamily(
-
         Font(com.example.thedetectivesgrid.R.font.jura)
     )
 
@@ -125,31 +128,75 @@ fun PuzzleCreatorScreen(
         mutableStateOf<PuzzleState>(PuzzleState.Input)
     }
 
+    // ── Detective Hint ───────────────────────────────────────
+    var showDetectiveHint by remember { mutableStateOf(false) }
+    // Automatically show the setup hint only the first time the word field gets focus.
+    var hasShownWordHint by remember { mutableStateOf(false) }
+    // Track whether the hint was opened by focusing the word field.
+    var hintOpenedFromWordField by remember { mutableStateOf(false) }
+
+    var hintRules by remember { mutableStateOf(HintRules.creatorScreen) }
+    var hintTitle by remember { mutableStateOf("PUZZLE CREATOR RULES") }
+    var hintSubtitle by remember { mutableStateOf("Before creating your investigation") }
+
+    val wordInputFocusRequester = remember { FocusRequester() }
+
+    fun openSetupHint(fromWordField: Boolean) {
+        hintRules = HintRules.creatorScreen
+        hintTitle = "PUZZLE CREATOR RULES"
+        hintSubtitle = "Before creating your investigation"
+        hintOpenedFromWordField = fromWordField
+        showDetectiveHint = true
+    }
+
+    fun openGridHint() {
+        hintRules = HintRules.gridScreen
+        hintTitle = "HOW TO PLAY"
+        hintSubtitle = "Find every hidden clue"
+        hintOpenedFromWordField = false
+        showDetectiveHint = true
+    }
+
+    // Keep the keyboard hidden while the hint is open. Restore it only when
+    // the hint was opened automatically from the word-entry field.
+    LaunchedEffect(showDetectiveHint) {
+        if (showDetectiveHint) {
+            focusManager.clearFocus(force = true)
+            repeat(3) {
+                keyboardController?.hide()
+                (view.context as? Activity)?.window?.let { window ->
+                    WindowCompat.getInsetsController(window, view)
+                        .hide(WindowInsetsCompat.Type.ime())
+                }
+                delay(80.milliseconds)
+            }
+        } else if (hintOpenedFromWordField) {
+            hintOpenedFromWordField = false
+            delay(300.milliseconds)
+            if (state is PuzzleState.Input) {
+                try {
+                    wordInputFocusRequester.requestFocus()
+                    keyboardController?.show()
+                } catch (e: IllegalStateException) {
+                    Log.w("HINT", "Word field not ready", e)
+                }
+            }
+        }
+    }
+
+
     var culprit by remember { mutableStateOf("") }
     var weapon by remember { mutableStateOf("") }
     var scene by remember { mutableStateOf("") }
     var motive by remember { mutableStateOf("") }
     var wordInput by remember { mutableStateOf("") }
 
-    var culpritGuess by remember {
-        mutableStateOf("")
-    }
+    var culpritGuess by remember { mutableStateOf("") }
+    var weaponGuess by remember { mutableStateOf("") }
+    var sceneGuess by remember { mutableStateOf("") }
+    var motiveGuess by remember { mutableStateOf("") }
 
-    var weaponGuess by remember {
-        mutableStateOf("")
-    }
-
-    var sceneGuess by remember {
-        mutableStateOf("")
-    }
-
-    var motiveGuess by remember {
-        mutableStateOf("")
-    }
-
-    var caseSolved by remember {
-        mutableStateOf(false)
-    }
+    var caseSolved by remember { mutableStateOf(false) }
 
     // ── Timer ────────────────────────────────────────────────
     // NOTE: elapsedSeconds is now owned/ticked by the isolated TimerDisplay
@@ -306,9 +353,9 @@ fun PuzzleCreatorScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp),
-
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
 
                             Text(
@@ -316,10 +363,16 @@ fun PuzzleCreatorScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp,
                                 fontFamily = juraFont,
-                                color = Color(0xFF3E2723)
+                                color = Color(0xFF3E2723),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            // Hint button sits directly below the title, centered
+                            DetectiveHintButton(
+                                onClick = { openSetupHint(fromWordField = false) },
+                                jura = juraFont
+                            )
 
                             OutlinedTextField(
                                 value = culprit,
@@ -349,10 +402,9 @@ fun PuzzleCreatorScreen(
                                     fontWeight = FontWeight.Bold
                                 ),
 
+                                singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
-
-                            Spacer(modifier = Modifier.height(20.dp))
 
                             OutlinedTextField(
                                 value = weapon,
@@ -382,10 +434,9 @@ fun PuzzleCreatorScreen(
                                     fontWeight = FontWeight.Bold
                                 ),
 
+                                singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
-
-                            Spacer(modifier = Modifier.height(20.dp))
 
                             OutlinedTextField(
                                 value = scene,
@@ -415,10 +466,9 @@ fun PuzzleCreatorScreen(
                                     fontWeight = FontWeight.Bold
                                 ),
 
+                                singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
-
-                            Spacer(modifier = Modifier.height(20.dp))
 
                             OutlinedTextField(
                                 value = motive,
@@ -448,10 +498,9 @@ fun PuzzleCreatorScreen(
                                     fontWeight = FontWeight.Bold
                                 ),
 
+                                singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
-
-                            Spacer(modifier = Modifier.height(20.dp))
 
                             OutlinedTextField(
                                 value = wordInput,
@@ -481,12 +530,20 @@ fun PuzzleCreatorScreen(
                                     fontWeight = FontWeight.Bold
                                 ),
 
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(wordInputFocusRequester)
+                                    .onFocusChanged { focusState ->
+                                        if (focusState.isFocused && !hasShownWordHint) {
+                                            hasShownWordHint = true
+                                            openSetupHint(fromWordField = true)
+                                        }
+                                    },
 
                                 minLines = 3
                             )
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             Button(
                                 onClick = {
@@ -553,7 +610,7 @@ fun PuzzleCreatorScreen(
                     }
                 }
 
-                // ✅ Spacer added after CreatorHowToPlayCard in Input state
+                // Spacer added after CreatorHowToPlayCard in Input state
                 if (state is PuzzleState.Input) {
                     Spacer(modifier = Modifier.height(16.dp))
                     CreatorHowToPlayCard(juraFont = juraFont)
@@ -579,13 +636,19 @@ fun PuzzleCreatorScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Puzzle Grid",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = juraFont,
-                                    color = Color(0xFF3E2723)
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Puzzle Grid",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = juraFont,
+                                        color = Color(0xFF3E2723)
+                                    )
+                                    DetectiveHintButton(
+                                        onClick = { openGridHint() },
+                                        jura = juraFont
+                                    )
+                                }
 
                                 if (isTimerRunning) {
                                     // Isolated composable (defined in PuzzleScreen.kt, same
@@ -672,10 +735,14 @@ fun PuzzleCreatorScreen(
                             println("SELECTED = ${selectedCells.sorted()}")
                             println("PLACEMENTS = ${placements.map { it.word to it.positions }}")
                             selectedCells.clear()
-                        }
-                    )
-                    {
-                        Text("Check Word")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Check Word",
+                            fontFamily = juraFont,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -689,7 +756,9 @@ fun PuzzleCreatorScreen(
                     ) {
 
                         Column(
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
                         ) {
 
                             Text(
@@ -723,77 +792,40 @@ fun PuzzleCreatorScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
+                    // Guess fields — no horizontalScroll wrappers, all full width
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
-                        ) {
-                            OutlinedTextField(
-                                value = culpritGuess,
-                                onValueChange = {
-                                    culpritGuess = it.uppercase()
-                                },
-                                label = {
-                                    Text("Enter Culprit")
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
-                        ) {
-                            OutlinedTextField(
-                                value = weaponGuess,
-                                onValueChange = {
-                                    weaponGuess = it.uppercase()
-                                },
-                                label = {
-                                    Text("Enter Weapon")
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
-                        ) {
-                            OutlinedTextField(
-                                value = sceneGuess,
-                                onValueChange = {
-                                    sceneGuess = it.uppercase()
-                                },
-                                label = {
-                                    Text("Enter Scene")
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
-                        ) {
-                            OutlinedTextField(
-                                value = motiveGuess,
-                                onValueChange = {
-                                    motiveGuess = it.uppercase()
-                                },
-                                label = {
-                                    Text("Enter Motive")
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                        GuessField(
+                            label = "Enter Culprit",
+                            value = culpritGuess,
+                            onValueChange = { culpritGuess = it },
+                            juraFont = juraFont
+                        )
+                        GuessField(
+                            label = "Enter Weapon",
+                            value = weaponGuess,
+                            onValueChange = { weaponGuess = it },
+                            juraFont = juraFont
+                        )
+                        GuessField(
+                            label = "Enter Scene",
+                            value = sceneGuess,
+                            onValueChange = { sceneGuess = it },
+                            juraFont = juraFont
+                        )
+                        GuessField(
+                            label = "Enter Motive",
+                            value = motiveGuess,
+                            onValueChange = { motiveGuess = it },
+                            juraFont = juraFont
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(35.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     if (state is PuzzleState.Playing) {
-                        val allCluesSolved =
-
-                            solvedWords.size == wordList.size
                         Card(
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(
@@ -803,7 +835,9 @@ fun PuzzleCreatorScreen(
                         ) {
 
                             Column(
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
                             ) {
 
                                 Text(
@@ -836,7 +870,7 @@ fun PuzzleCreatorScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(35.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Button(
                         onClick = {
@@ -854,7 +888,11 @@ fun PuzzleCreatorScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Solve Case")
+                        Text(
+                            text = "Solve Case",
+                            fontFamily = juraFont,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(21.dp))
@@ -865,7 +903,10 @@ fun PuzzleCreatorScreen(
                             text = "CASE SOLVED ✅",
                             color = Color(0xFF2E7D32),
                             fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = juraFont,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
 
                     } else {
@@ -873,7 +914,10 @@ fun PuzzleCreatorScreen(
                         Text(
                             text = "Case Not Solved Yet ❌",
                             color = Color.Red,
-                            fontSize = 18.sp
+                            fontSize = 18.sp,
+                            fontFamily = juraFont,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     Spacer(modifier = Modifier.height(80.dp))
@@ -881,6 +925,16 @@ fun PuzzleCreatorScreen(
             }
         }
     }
+
+    // ── Detective Hint Popup ─────────────────────────────────
+    DetectiveHintDialog(
+        show = showDetectiveHint,
+        onDismiss = { showDetectiveHint = false },
+        jura = juraFont,
+        rules = hintRules,
+        title = hintTitle,
+        subtitle = hintSubtitle
+    )
 
     // ── Case Solved Popup ───────────────────────────────────
     if (showSolvedDialog) {
@@ -933,6 +987,31 @@ fun PuzzleCreatorScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  GuessField — full-width, uppercase-forcing guess input used in Playing state
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun GuessField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    juraFont: FontFamily
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { onValueChange(it.uppercase()) },
+        label = { Text(label, fontFamily = juraFont) },
+        textStyle = TextStyle(
+            fontFamily = juraFont,
+            fontSize = 18.sp,
+            color = Color(0xFF3E2723),
+            fontWeight = FontWeight.Bold
+        ),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  CreatorHowToPlayCard — collapsible hints panel for creator screen
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
@@ -959,11 +1038,11 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF4E6D0)),
-        modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = androidx.compose.ui.Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = androidx.compose.ui.Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -977,7 +1056,7 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
                         imageVector = Icons.Default.PlayCircleOutline,
                         contentDescription = null,
                         tint = Color(0xFF6D4C41),
-                        modifier = androidx.compose.ui.Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Text(
                         text = "How To Play",
@@ -991,15 +1070,15 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (expanded) "Collapse" else "Expand",
                     tint = Color(0xFF6D4C41),
-                    modifier = androidx.compose.ui.Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             AnimatedVisibility(visible = expanded) {
                 Column {
-                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Divider(color = Color(0xFFD7BE9A))
-                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "Setup",
                         fontSize = 13.sp,
@@ -1008,12 +1087,12 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
                         color = Color(0xFF6D4C41),
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = androidx.compose.ui.Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     inputHints.forEach { (emoji, text) ->
                         Row(
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = androidx.compose.ui.Modifier.padding(vertical = 3.dp)
+                            modifier = Modifier.padding(vertical = 3.dp)
                         ) {
                             Text(text = emoji, fontSize = 14.sp)
                             Text(
@@ -1022,13 +1101,13 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
                                 fontFamily = juraFont,
                                 color = Color(0xFF4E342E),
                                 fontWeight = FontWeight.Bold,
-                                modifier = androidx.compose.ui.Modifier.weight(1f)
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
-                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Divider(color = Color(0xFFD7BE9A))
-                    Spacer(modifier = androidx.compose.ui.Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "Playing",
                         fontSize = 13.sp,
@@ -1037,12 +1116,12 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
                         color = Color(0xFF6D4C41),
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = androidx.compose.ui.Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     playHints.forEach { (emoji, text) ->
                         Row(
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = androidx.compose.ui.Modifier.padding(vertical = 3.dp)
+                            modifier = Modifier.padding(vertical = 3.dp)
                         ) {
                             Text(text = emoji, fontSize = 14.sp)
                             Text(
@@ -1051,7 +1130,7 @@ private fun CreatorHowToPlayCard(juraFont: FontFamily) {
                                 fontFamily = juraFont,
                                 color = Color(0xFF4E342E),
                                 fontWeight = FontWeight.Bold,
-                                modifier = androidx.compose.ui.Modifier.weight(1f)
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
