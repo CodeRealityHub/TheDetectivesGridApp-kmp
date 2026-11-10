@@ -13,7 +13,7 @@ kotlin {
 }
 dependencies {
     implementation(projects.sharedUI)
-
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.material3)
     implementation(platform("androidx.compose:compose-bom:2026.05.00"))
@@ -29,7 +29,7 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.thedetectivesgrid"
+        applicationId = "com.anurag.thedetectivesgrid"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -48,5 +48,20 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(project.property("MYAPP_UPLOAD_STORE_FILE") as String)
+            storePassword = project.property("MYAPP_UPLOAD_STORE_PASSWORD") as String
+            keyAlias = project.property("MYAPP_UPLOAD_KEY_ALIAS") as String
+            keyPassword = project.property("MYAPP_UPLOAD_KEY_PASSWORD") as String
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 }

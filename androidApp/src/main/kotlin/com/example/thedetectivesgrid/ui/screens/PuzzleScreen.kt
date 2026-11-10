@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.thedetectivesgrid.generator.PuzzleGenerators
@@ -54,6 +56,11 @@ import com.example.thedetectivesgrid.models.PuzzleData
 import com.example.thedetectivesgrid.models.PuzzleState
 import com.example.thedetectivesgrid.R
 import kotlinx.coroutines.delay
+import androidx.compose.ui.focus.onFocusChanged
+import com.example.thedetectivesgrid.ui.screens.components.DetectiveHintButton
+import com.example.thedetectivesgrid.ui.screens.components.DetectiveHintDialog
+import com.example.thedetectivesgrid.ui.screens.components.HintRules
+import kotlin.time.Duration.Companion.milliseconds
 
 // ─────────────────────────────────────────────
 //  Colour tokens
@@ -89,6 +96,7 @@ fun PuzzleScreen(
     val view               = LocalView.current
 
     val dismissFocusRequester = remember { FocusRequester() }
+    val wordInputFocusRequester = remember { FocusRequester() }
 
     fun dismissKeyboardAndFocus() {
         dismissFocusRequester.requestFocus()
@@ -135,6 +143,63 @@ fun PuzzleScreen(
     var isTimerRunning   by remember { mutableStateOf(false) }
     var showSolvedDialog by remember { mutableStateOf(false) }
 
+    // ── Hint ───────────────────────────────────────────────
+    var showDetectiveHint by remember { mutableStateOf(false) }
+    // Auto-open the hint only once, the first time the word field gets focus.
+    var hasShownWordHint by remember { mutableStateOf(false) }
+    // True when the hint was opened by focusing the word field, so focus can be restored afterwards.
+    var hintOpenedFromWordField by remember { mutableStateOf(false) }
+
+    // Which rules/heading the dialog shows (setup rules vs. grid rules).
+    var hintRules by remember { mutableStateOf(HintRules.puzzleScreen) }
+    var hintTitle by remember { mutableStateOf("PUZZLE RULES") }
+    var hintSubtitle by remember { mutableStateOf("Before starting your investigation") }
+
+    // Opens the hint with setup-phase rules (before the grid is generated).
+    fun openSetupHint(fromWordField: Boolean) {
+        hintRules = HintRules.puzzleScreen
+        hintTitle = "PUZZLE RULES"
+        hintSubtitle = "Before starting your investigation"
+        hintOpenedFromWordField = fromWordField
+        showDetectiveHint = true
+    }
+
+    // Opens the hint with playing-phase rules (after the grid is generated).
+    fun openGridHint() {
+        hintRules = HintRules.gridScreen
+        hintTitle = "HOW TO PLAY"
+        hintSubtitle = "Find every hidden clue"
+        hintOpenedFromWordField = false
+        showDetectiveHint = true
+    }
+
+    // Keep the keyboard hidden while the hint is open. Restore it only when the
+    // hint was opened from the word field.
+    LaunchedEffect(showDetectiveHint) {
+        if (showDetectiveHint) {
+            focusManager.clearFocus(force = true)
+            // The field's focus triggers an async keyboard show, so hide it until it settles.
+            repeat(3) {
+                keyboardController?.hide()
+                (view.context as? Activity)?.window?.let { window ->
+                    WindowCompat.getInsetsController(window, view)
+                        .hide(WindowInsetsCompat.Type.ime())
+                }
+                delay(80.milliseconds)
+            }
+        } else if (hintOpenedFromWordField) {
+            hintOpenedFromWordField = false // Reset first so it cannot get stuck.
+            delay(300.milliseconds) // Let the dialog window fully disappear.
+            if (puzzleState is PuzzleState.Input) {
+                try {
+                    wordInputFocusRequester.requestFocus()
+                    keyboardController?.show()
+                } catch (e: IllegalStateException) {
+                    Log.w("HINT", "Word field not ready", e)
+                }
+            }
+        }
+    }
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -330,13 +395,24 @@ fun PuzzleScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // ── WORDS SECTION ────────────────────
-                        Text(
-                            text = "Add Words to Find",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = TitleBrown,
-                            fontFamily = jura
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ){
+                            Text(
+                                text = "Add Words to Find",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = TitleBrown,
+                                fontFamily = jura
+                            )
+
+                            DetectiveHintButton(
+                                onClick = { openSetupHint(fromWordField = false) },
+                                jura = jura
+                            )
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Minimum $MIN_WORDS words required",
@@ -358,10 +434,21 @@ fun PuzzleScreen(
                             OutlinedTextField(
                                 value = wordInputText,
                                 onValueChange = {
-                                    wordInputText = it.uppercase().filter { c -> c.isLetter() }
+                                    wordInputText = it.uppercase()
+                                        .filter { c -> c.isLetter() }
+                                        .take(MAX_WORD_LENGTH)
                                     wordInputError = ""
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(wordInputFocusRequester)
+                                    .onFocusChanged { focusState ->
+                                        // Auto-show the hint the first time the user taps the word field.
+                                        if (focusState.isFocused && !hasShownWordHint) {
+                                            hasShownWordHint = true
+                                            openSetupHint(fromWordField = true)
+                                        }
+                                    },
                                 placeholder = {
                                     Text(
                                         "Enter a word…",
@@ -491,13 +578,20 @@ fun PuzzleScreen(
                                     Log.d("WORDS", "$index -> '$word' (${word.length})")
                                 }
 
-                                val generated = PuzzleGenerators.generate(wordList)
-                                Log.d("PUZZLE", "Grid Size = ${generated.gridSize}")
-                                Log.d("PUZZLE", "Cell Count = ${generated.grid.size}")
+                                // Generation can fail on awkward word sets; treat that as a placement failure.
+                                val generated = try {
+                                    PuzzleGenerators.generate(wordList)
+                                } catch (e: Exception) {
+                                    Log.e("PUZZLE", "Generation failed", e)
+                                    null
+                                }
 
                                 if (generated == null) {
                                     wordInputError = "Could not place all words. Try different words."
                                 } else {
+                                    Log.d("PUZZLE", "Grid Size = ${generated.gridSize}")
+                                    Log.d("PUZZLE", "Cell Count = ${generated.grid.size}")
+
                                     puzzleData = generated
                                     gridSize   = generated.gridSize
 
@@ -561,18 +655,35 @@ fun PuzzleScreen(
 
                     NotebookCard(jura = jura) {
 
+                        // ── INVESTIGATION NOTES HEADER ─────────────────────
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = "Investigation Notes",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = TitleBrown,
-                                fontFamily = jura
-                            )
+                            // The title gives up space first; HINT and Reset remain visible.
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Investigation Notes",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = TitleBrown,
+                                    fontFamily = jura,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                DetectiveHintButton(
+                                    onClick = { openGridHint() },
+                                    jura = jura
+                                )
+                            }
+
                             TextButton(
                                 onClick = {
                                     puzzleState    = PuzzleState.Input
@@ -586,16 +697,26 @@ fun PuzzleScreen(
                                     motiveAnswer   = ""
                                     isTimerRunning = false
                                     elapsedSeconds = 0
-                                }
+                                },
+                                contentPadding = PaddingValues(horizontal = 4.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Refresh,
+                                    imageVector = Icons.Default.Refresh,
                                     contentDescription = "Reset",
                                     tint = BulletBrown,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
+
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Reset", fontFamily = jura, color = BulletBrown, fontSize = 13.sp)
+
+                                Text(
+                                    text = "Reset",
+                                    fontFamily = jura,
+                                    color = BulletBrown,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
 
@@ -859,6 +980,7 @@ fun PuzzleScreen(
                                         showSolvedDialog = true
                                     }
                                 },
+                                enabled = allWordsFound,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = TitleBrown
@@ -970,6 +1092,16 @@ fun PuzzleScreen(
             } // end scrollable Column
         } // end outer Column
     } // end Surface
+
+    // Detective Hint Popup: displays the rules for the current phase.
+    DetectiveHintDialog(
+        show = showDetectiveHint,
+        onDismiss = { showDetectiveHint = false },
+        jura = jura,
+        rules = hintRules,
+        title = hintTitle,
+        subtitle = hintSubtitle
+    )
 
     // ── Case Solved Dialog ──────────────────────────────────
     if (showSolvedDialog) {
@@ -1467,7 +1599,8 @@ private fun formatElapsed(totalSeconds: Int): String {
     return "%d:%02d".format(minutes, seconds)
 }
 
-private const val MAX_WORD_LENGTH = 15
+private const val MIN_WORD_LENGTH = 3
+private const val MAX_WORD_LENGTH = 12
 private fun addWord(
     text: String,
     current: List<String>,
@@ -1476,10 +1609,10 @@ private fun addWord(
 ) {
     val w = text.trim().uppercase()
     when {
-        w.isEmpty()              -> onError("Please enter a word.")
-        w.length < 3             -> onError("Word must be at least 3 letters.")
+        w.isEmpty()                -> onError("Please enter a word.")
+        w.length < MIN_WORD_LENGTH -> onError("Word must be at least $MIN_WORD_LENGTH letters.")
         w.length > MAX_WORD_LENGTH -> onError("Word too long (max $MAX_WORD_LENGTH letters).")
-        current.contains(w)      -> onError("\"$w\" is already in the list.")
-        else                     -> onSuccess(current + w)
+        current.contains(w)        -> onError("\"$w\" is already in the list.")
+        else                       -> onSuccess(current + w)
     }
 }
